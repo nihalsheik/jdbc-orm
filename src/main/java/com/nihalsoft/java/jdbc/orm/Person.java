@@ -1,7 +1,6 @@
 package com.nihalsoft.java.jdbc.orm;
 
 import java.time.LocalDateTime;
-import java.util.Date;
 
 import com.nihalsoft.java.jdbc.orm.annotation.Column;
 import com.nihalsoft.java.jdbc.orm.annotation.Id;

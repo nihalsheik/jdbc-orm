@@ -1,7 +1,6 @@
 package com.nihalsoft.java.jdbc.orm;
 
 import java.util.List;
-import java.util.Objects;
 
 import javax.sql.DataSource;
 
