@@ -5,23 +5,17 @@ import java.util.Map;
 
 public class DataMap extends HashMap<String, Object> {
 
-    private static final long serialVersionUID = 1L;
-
-    public DataMap() {
-        super();
-    }
-
     public static DataMap create() {
         return new DataMap();
     }
-    
-    public static DataMap from(Map<String, Object> source) {
-        DataMap dm = new DataMap();
-        dm.putAll(source);
-        return dm;
+
+    public static DataMap from(Map<String, Object> data) {
+        DataMap d = new DataMap();
+        d.putAll(data);
+        return d;
     }
 
-    public DataMap add(String key, Object value) {
+    public DataMap put(String key, Object value) {
         super.put(key, value);
         return this;
     }
@@ -58,9 +52,13 @@ public class DataMap extends HashMap<String, Object> {
         }
     }
 
+    public Object get(String key) {
+        return super.get(key);
+    }
+
     public Object get(String key, Object defaultValue) {
         if (this.containsKey(key)) {
-            return this.get(key);
+            return super.get(key);
         } else {
             return defaultValue;
         }
@@ -74,15 +72,20 @@ public class DataMap extends HashMap<String, Object> {
 
     @SuppressWarnings("unchecked")
     public <T> T get(String key, Class<T> clazz) {
-        return (T) this.get(key);
+        return (T) super.get(key);
     }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
         this.entrySet().forEach(a -> {
-            sb.append(a.getKey()).append("=").append(a.getValue()).append(", ");
+            sb.append(a.getKey()).append("=").append(a.getValue()).append(" ");
         });
         return sb.toString();
     }
+
+    public Map<String, Object> toMap() {
+        return this;
+    }
+
 }

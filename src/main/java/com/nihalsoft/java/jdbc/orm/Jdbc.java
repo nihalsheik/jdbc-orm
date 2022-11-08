@@ -1,6 +1,5 @@
 package com.nihalsoft.java.jdbc.orm;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -8,12 +7,16 @@ import java.util.logging.Logger;
 
 import javax.sql.DataSource;
 
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 
 import com.nihalsoft.java.jdbc.orm.common.ColumnInfo;
+import com.nihalsoft.java.jdbc.orm.common.DataMap;
+import com.nihalsoft.java.jdbc.orm.common.DataMapExtractor;
 import com.nihalsoft.java.jdbc.orm.common.EntityDescriptor;
 import com.nihalsoft.java.jdbc.orm.common.EntityUtil;
+import com.nihalsoft.java.jdbc.orm.common.SQLDataMapper;
 import com.nihalsoft.java.jdbc.orm.common.Util;
 import com.nihalsoft.java.jdbc.orm.result.handler.BeanListHandler;
 import com.nihalsoft.java.jdbc.orm.result.handler.BeanMapper;
@@ -42,11 +45,31 @@ public class Jdbc extends JdbcTemplate {
     }
 
     public <T> List<T> queryForBeanList(String sql, Class<T> type, Object... args) throws Exception {
-        return this.query(sql, new BeanListHandler<T>(beanProcessor, type));
+        return this.query(sql, new BeanListHandler<T>(beanProcessor, type), args);
     }
 
     public <T> T queryForBean(String sql, Class<T> type, Object... args) throws Exception {
         return this.query(sql, new ResultHandler<T>(new BeanMapper<T>(beanProcessor, type)));
+    }
+
+    public List<DataMap> queryForListOfDataMap(String sql) throws DataAccessException {
+        return this.query(sql, new SQLDataMapper());
+    }
+
+    public List<DataMap> queryForListOfDataMap(String sql, Object... args) throws DataAccessException {
+        return this.query(sql, new SQLDataMapper(), args);
+    }
+
+    public DataMap queryForDataMap(String sql) throws DataAccessException {
+        return queryForObject(sql, new SQLDataMapper());
+    }
+
+    public DataMap queryForDataMap(String sql, Object... args) throws DataAccessException {
+        try {
+            return query(sql, new DataMapExtractor(), args);
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     public int update(String tableName, Map<String, Object> dataMap, String criteria, Object... params)
@@ -102,7 +125,7 @@ public class Jdbc extends JdbcTemplate {
 
     public long insert(String table, Map<String, Object> data) throws Exception {
         SimpleJdbcInsert sjdbc = new SimpleJdbcInsert(this);
-        return sjdbc.executeAndReturnKey(data).longValue();
+        return sjdbc.withTableName(table).usingGeneratedKeyColumns("id").executeAndReturnKey(data).longValue();
     }
 
     public long insert(Object entity) throws Exception {
@@ -110,13 +133,10 @@ public class Jdbc extends JdbcTemplate {
         EntityDescriptor ed = EntityUtil.getDescriptor(entity, colInfo -> colInfo.isInsertable() && colInfo.hasValue());
         SimpleJdbcInsert sjdbc = new SimpleJdbcInsert(this);
 
-        Map<String, Object> map = new HashMap<String, Object>();
-
-        for (ColumnInfo ci : ed.getColumns()) {
-            map.put(ci.getName(), ci.getValue());
-        }
-
-        return sjdbc.executeAndReturnKey(map).longValue();
+        return sjdbc.withTableName(ed.getTableName()) //
+                .usingGeneratedKeyColumns(ed.getIdColumn().getName()) //
+                .executeAndReturnKey(ed.toDataMap()) //
+                .longValue();
 
     }
 

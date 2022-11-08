@@ -32,4 +32,12 @@ public class EntityDescriptor {
         return idColumn;
     }
 
+    public DataMap toDataMap() {
+        DataMap map = DataMap.create();
+        for (ColumnInfo ci : this.getColumns()) {
+            map.put(ci.getName(), ci.getValue());
+        }
+        return map;
+    }
+
 }
