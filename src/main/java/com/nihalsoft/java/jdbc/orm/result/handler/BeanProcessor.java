@@ -8,6 +8,8 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -39,6 +41,8 @@ public class BeanProcessor {
 
         try {
             BeanInfo beanInfo = Introspector.getBeanInfo(type);
+//            ExtendedBeanInfoFactory bi = new ExtendedBeanInfoFactory();
+//            BeanInfo beanInfo = bi.getBeanInfo(type);
             PropertyDescriptor[] props = beanInfo.getPropertyDescriptors();
             int[] columnToProperty = mapColumnsToProperties(rs, props);
             while (rs.next()) {
@@ -107,13 +111,18 @@ public class BeanProcessor {
             try {
                 Class<?> firstParam = setter.getParameterTypes()[0];
 
-                if (value == null || firstParam.isInstance(value) || matchesPrimitive(firstParam, value.getClass())) {
-                    setter.invoke(bean, new Object[] { value });
-                } else {
-                    throw new SQLException("Cannot set " + prop.getName() + ": incompatible types, cannot convert "
-                            + value.getClass().getName() + " to " + firstParam.getName());
-
+                if (value instanceof LocalDateTime) {
+                    LocalDateTime dTime = (LocalDateTime) value;
+                    value = java.util.Date.from(dTime.atZone(ZoneId.systemDefault()).toInstant());
                 }
+
+               // if (value == null || firstParam.isInstance(value) || matchesPrimitive(firstParam, value.getClass())) {
+                    setter.invoke(bean, new Object[] { value });
+               // } else {
+               //     throw new SQLException("Cannot set " + prop.getName() + ": incompatible types, cannot convert "
+               //             + value.getClass().getName() + " to " + firstParam.getName());
+//
+               //  }
 
             } catch (Exception e) {
                 throw new SQLException("Cannot set " + prop.getName() + ": " + e.getMessage());

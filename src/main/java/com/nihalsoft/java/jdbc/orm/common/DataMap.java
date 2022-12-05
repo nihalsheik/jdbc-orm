@@ -88,4 +88,12 @@ public class DataMap extends HashMap<String, Object> {
         return this;
     }
 
+    public double getDouble(String key) {
+        try {
+            return Double.valueOf(this.get(key).toString());
+        } catch (Exception ex) {
+            return 0;
+        }
+    }
+
 }

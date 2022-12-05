@@ -4,8 +4,6 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 
-import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.dao.IncorrectResultSizeDataAccessException;
 import org.springframework.jdbc.core.ResultSetExtractor;
 import org.springframework.jdbc.support.JdbcUtils;
 import org.springframework.util.Assert;
@@ -28,7 +26,7 @@ public class ResultHandler<T> implements ResultSetExtractor<T> {
     public T extractData(ResultSet rs) throws SQLException {
 
         if (!rs.next()) {
-            throw new EmptyResultDataAccessException(1);
+            return null;
         }
 
         this.metaData = rs.getMetaData();
@@ -40,11 +38,6 @@ public class ResultHandler<T> implements ResultSetExtractor<T> {
         }
 
         T result = this.rowMapper.mapRow(rs, columnNames, 0);
-        
-        
-        if (rs.next()) {
-            throw new IncorrectResultSizeDataAccessException(1, 1);
-        }
 
         return result;
     }

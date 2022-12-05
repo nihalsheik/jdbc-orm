@@ -13,7 +13,7 @@ public class DataMapMapper implements RowHandler<DataMap> {
         int columnCount = columnNames.length;
         DataMap res = DataMap.create();
         for (int i = 1; i <= columnCount; i++) {
-            res.put(columnNames[i-1], JdbcUtils.getResultSetValue(rs, i));
+            res.put(columnNames[i - 1], JdbcUtils.getResultSetValue(rs, i));
         }
         return res;
     }

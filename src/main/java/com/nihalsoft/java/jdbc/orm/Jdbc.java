@@ -11,16 +11,16 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 
-import com.nihalsoft.java.jdbc.orm.common.ColumnInfo;
 import com.nihalsoft.java.jdbc.orm.common.DataMap;
-import com.nihalsoft.java.jdbc.orm.common.DataMapExtractor;
 import com.nihalsoft.java.jdbc.orm.common.EntityDescriptor;
 import com.nihalsoft.java.jdbc.orm.common.EntityUtil;
 import com.nihalsoft.java.jdbc.orm.common.SQLDataMapper;
-import com.nihalsoft.java.jdbc.orm.common.Util;
+import com.nihalsoft.java.jdbc.orm.common.SysEntity;
 import com.nihalsoft.java.jdbc.orm.result.handler.BeanListHandler;
 import com.nihalsoft.java.jdbc.orm.result.handler.BeanMapper;
 import com.nihalsoft.java.jdbc.orm.result.handler.BeanProcessor;
+import com.nihalsoft.java.jdbc.orm.result.handler.BeanResultHandler;
+import com.nihalsoft.java.jdbc.orm.result.handler.DataMapMapper;
 import com.nihalsoft.java.jdbc.orm.result.handler.ObjectMapper;
 import com.nihalsoft.java.jdbc.orm.result.handler.ResultHandler;
 import com.nihalsoft.java.jdbc.orm.result.handler.ResultListHandler;
@@ -36,40 +36,40 @@ public class Jdbc extends JdbcTemplate {
         beanProcessor = new BeanProcessor();
     }
 
+    public Select select() {
+        return new Select(this);
+    }
+    
+    public Select select(String tableName) {
+        return new Select(this, tableName);
+    }
+
+    public Select select(Class<?> entity) {
+        return new Select(this, entity);
+    }
+
     public List<Object[]> queryForObjectList(String sql, Object... args) throws Exception {
-        return this.query(sql, new ResultListHandler<Object[]>(new ObjectMapper()));
+        return this.query(sql, new ResultListHandler<Object[]>(new ObjectMapper()), args);
     }
 
     public Object[] queryForObject(String sql, Object... args) throws Exception {
-        return this.query(sql, new ResultHandler<Object[]>(new ObjectMapper()));
+        return this.query(sql, new ResultHandler<Object[]>(new ObjectMapper()), args);
     }
 
     public <T> List<T> queryForBeanList(String sql, Class<T> type, Object... args) throws Exception {
         return this.query(sql, new BeanListHandler<T>(beanProcessor, type), args);
     }
 
-    public <T> T queryForBean(String sql, Class<T> type, Object... args) throws Exception {
-        return this.query(sql, new ResultHandler<T>(new BeanMapper<T>(beanProcessor, type)));
-    }
-
-    public List<DataMap> queryForListOfDataMap(String sql) throws DataAccessException {
-        return this.query(sql, new SQLDataMapper());
+    public <T> T queryForBean(String sql, Class<T> type, Object... args) {
+        return this.query(sql, new BeanResultHandler<T>(new BeanMapper<T>(beanProcessor, type)), args);
     }
 
     public List<DataMap> queryForListOfDataMap(String sql, Object... args) throws DataAccessException {
         return this.query(sql, new SQLDataMapper(), args);
     }
 
-    public DataMap queryForDataMap(String sql) throws DataAccessException {
-        return queryForObject(sql, new SQLDataMapper());
-    }
-
     public DataMap queryForDataMap(String sql, Object... args) throws DataAccessException {
-        try {
-            return query(sql, new DataMapExtractor(), args);
-        } catch (Exception ex) {
-            return null;
-        }
+        return this.query(sql, new ResultHandler<DataMap>(new DataMapMapper()), args);
     }
 
     public int update(String tableName, Map<String, Object> dataMap, String criteria, Object... params)
@@ -93,9 +93,9 @@ public class Jdbc extends JdbcTemplate {
     }
 
     public <T> T findOne(Class<T> clazz, Object id) throws Exception {
-        EntityDescriptor ed = EntityUtil.getDescriptor(clazz);
-        Util.throwSqlException(!ed.hasId(), "There is no id column");
-        return this.queryForBean("SELECT * FROM " + ed.getTableName() + " WHERE " + ed.getIdColumn() + "=?", clazz, id);
+        String tn = EntityUtil.getTableName(clazz);
+//        Util.throwSqlException(!ed.hasId(), "There is no id column");
+        return this.queryForBean("SELECT * FROM " + tn + " WHERE id=?", clazz, id);
     }
 
     /**
@@ -109,6 +109,10 @@ public class Jdbc extends JdbcTemplate {
         return this.queryForBeanList("SELECT * FROM " + EntityUtil.getTableName(clazz), clazz);
     }
 
+    public <T> List<T> findAll(Class<T> clazz, Object id) throws Exception {
+        return this.queryForBeanList("SELECT * FROM " + EntityUtil.getTableName(clazz) + " WHERE id=?", clazz, id);
+    }
+
     /**
      * 
      * @param <T>
@@ -118,9 +122,13 @@ public class Jdbc extends JdbcTemplate {
      * @return
      * @throws Exception
      */
-    public <T> List<T> find(Class<T> clazz, String criteria, Object... args) throws Exception {
+    public <T> List<T> findAll(Class<T> clazz, String criteria, Object... args) throws Exception {
         return this.queryForBeanList("SELECT * FROM " + EntityUtil.getTableName(clazz) + " WHERE " + criteria, clazz,
                 args);
+    }
+
+    public <T> List<T> findAll(String sql, Class<T> clazz, Object... args) throws Exception {
+        return this.queryForBeanList(sql, clazz, args);
     }
 
     public long insert(String table, Map<String, Object> data) throws Exception {
@@ -128,16 +136,43 @@ public class Jdbc extends JdbcTemplate {
         return sjdbc.withTableName(table).usingGeneratedKeyColumns("id").executeAndReturnKey(data).longValue();
     }
 
-    public long insert(Object entity) throws Exception {
+    public void saveOrUpdateBatch(List<SysEntity> entities) throws Exception {
 
-        EntityDescriptor ed = EntityUtil.getDescriptor(entity, colInfo -> colInfo.isInsertable() && colInfo.hasValue());
-        SimpleJdbcInsert sjdbc = new SimpleJdbcInsert(this);
+        // EntityDescriptor ed = EntityUtil.getDescriptor(entities.get(0), colInfo ->
+        // colInfo.hasValue());
 
-        return sjdbc.withTableName(ed.getTableName()) //
-                .usingGeneratedKeyColumns(ed.getIdColumn().getName()) //
-                .executeAndReturnKey(ed.toDataMap()) //
-                .longValue();
+    }
 
+    public long saveOrUpdate(SysEntity entity, String... cols) throws Exception {
+
+        EntityDescriptor ed = EntityUtil.getDescriptor(entity, cols);
+
+        if (entity.isNew()) {
+            SimpleJdbcInsert sjdbc = new SimpleJdbcInsert(this);
+
+            long id = sjdbc.withTableName(ed.getTableName()) //
+                    .usingGeneratedKeyColumns("id") //
+                    .executeAndReturnKey(ed.toDataMap()) //
+                    .longValue();
+
+            entity.setId(id);
+
+            return id;
+
+        } else {
+            String sql = ed.getSqlStringForUpdate("id=?");
+            log.info(sql);
+            return this.update(sql, ed.getValues(entity.getId()));
+        }
+    }
+
+    public boolean exist(String table, String where, Object... args) throws Exception {
+        try {
+            return this.queryForObject("SELECT EXISTS(SELECT id FROM " + table + " WHERE " + where + " LIMIT 1)",
+                    Long.class, args) == 1;
+        } catch (Exception ex) {
+            return false;
+        }
     }
 
     /**
@@ -148,11 +183,13 @@ public class Jdbc extends JdbcTemplate {
      * @throws Exception
      */
     public int delete(Class<?> clazz, Object id) throws Exception {
-        EntityDescriptor ed = EntityUtil.getDescriptor(clazz);
-        Util.throwIf(!ed.hasId(), "There is no id column");
-        String sql = "DELETE FROM " + ed.getTableName() + " WHERE " + ed.getIdColumn().getName() + "=?";
-        log.info(sql);
-        return this.update(sql, id);
+        String tn = EntityUtil.getTableName(clazz);
+        return this.update("DELETE FROM " + tn + " WHERE id=?", id);
+    }
+
+    public int delete(Class<?> clazz, String criteria, Object... args) throws Exception {
+        String tn = EntityUtil.getTableName(clazz);
+        return this.update("DELETE FROM " + tn + " WHERE " + criteria, args);
     }
 
     /**
@@ -161,12 +198,11 @@ public class Jdbc extends JdbcTemplate {
      * @return
      * @throws Exception
      */
-    public int delete(Object entity) throws Exception {
-        EntityDescriptor ed = EntityUtil.getDescriptor(entity, null);
-        Util.throwIf(!ed.hasId(), "There is no id column");
-        String sql = "DELETE FROM " + ed.getTableName() + " WHERE " + ed.getIdColumn().getName() + "=?";
-        log.info(sql + ", id:" + ed.getIdColumn().getValue());
-        return this.update(sql, ed.getIdColumn().getValue());
+    public int delete(SysEntity entity) throws Exception {
+//        Util.throwIf(!ed.hasId(), "There is no id column");
+        String sql = "DELETE FROM " + entity.getTableName() + " WHERE id=?";
+        log.info(sql + ", id:" + entity.getId());
+        return this.update(sql, entity.getId());
     }
 
     /**
@@ -177,26 +213,11 @@ public class Jdbc extends JdbcTemplate {
      * @return
      * @throws Exception
      */
-    public int delete(Object entity, String criteria, Object... args) throws Exception {
+    public int delete(SysEntity entity, String criteria, Object... args) throws Exception {
         EntityDescriptor ed = EntityUtil.getDescriptor(entity.getClass());
         String sql = "DELETE FROM " + ed.getTableName() + " WHERE " + criteria;
         log.info(sql);
         return this.update(sql, args);
-    }
-
-    /**
-     * 
-     * @param entity
-     * @return
-     * @throws Exception
-     */
-    public int update(Object entity) throws Exception {
-
-        EntityDescriptor ed = EntityUtil.getDescriptor(entity, colInfo -> colInfo.isInsertable() && colInfo.hasValue());
-
-        Util.throwIf(!ed.hasId(), "There is no id column");
-
-        return _update(ed, ed.getIdColumn().getName() + "=?", ed.getIdColumn().getValue());
     }
 
     /**
@@ -207,31 +228,9 @@ public class Jdbc extends JdbcTemplate {
      * @return
      * @throws Exception
      */
-    public int update(Object entity, String creteria, Object... args) throws Exception {
-        EntityDescriptor ed = EntityUtil.getDescriptor(entity, colInfo -> colInfo.isInsertable() && colInfo.hasValue());
-        return _update(ed, creteria, args);
-    }
-
-    /**
-     * ------------------- PRIVATE METHODS -------------------
-     */
-    private int _update(EntityDescriptor ed, String criteria, Object... params) throws Exception {
-
-        Object[] values = new Object[ed.getColumns().size() + params.length];
-
-        String col = "";
-        int i = 0;
-        for (ColumnInfo ci : ed.getColumns()) {
-            col += "," + ci.getName() + "=?";
-            values[i++] = ci.getValue();
-        }
-
-        for (Object obj : params) {
-            values[i++] = obj;
-        }
-
-        String sql = "UPDATE " + ed.getTableName() + " SET " + col.substring(1) + " WHERE " + criteria;
-        return this.update(sql, values);
+    public int update(SysEntity entity, String creteria, Object... args) throws Exception {
+        EntityDescriptor ed = EntityUtil.getDescriptor(entity);
+        return this.update(ed.getSqlStringForUpdate(creteria), ed.getValues(args));
     }
 
 }

@@ -22,4 +22,6 @@ public class BeanListHandler<T> implements ResultSetExtractor<List<T>> {
         return beanProcessor.toBeanList(rs, type);
     }
 
+    
+    
 }
