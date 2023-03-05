@@ -3,8 +3,6 @@ package com.nihalsoft.java.jdbc.orm.common;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
-import java.util.ArrayList;
-import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.nihalsoft.java.jdbc.orm.annotation.Column;
@@ -24,11 +22,17 @@ public class SysEntity {
 
     @JsonIgnore
     public int getIdAsInt() {
+        if (id == null) {
+            return 0;
+        }
         return Integer.valueOf(id.toString());
     }
 
     @JsonIgnore
     public long getIdAsLong() {
+        if (id == null) {
+            return 0;
+        }
         return Long.valueOf(id.toString());
     }
 

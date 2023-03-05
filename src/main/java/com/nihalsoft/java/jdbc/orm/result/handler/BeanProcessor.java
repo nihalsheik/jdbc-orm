@@ -77,7 +77,8 @@ public class BeanProcessor {
         T bean;
 
         try {
-            bean = type.newInstance();
+            bean = type.getDeclaredConstructor().newInstance();
+//            bean = type.newInstance();
         } catch (Exception e) {
             throw new SQLException("Cannot create " + type.getName() + ": " + e.getMessage());
 
@@ -96,7 +97,13 @@ public class BeanProcessor {
 
             Object value = null;
             if (propType != null) {
-                value = rs.getObject(columnToProperty[i]);
+
+                if (propType.getTypeName().equals("boolean")) {
+                    value = rs.getBoolean(columnToProperty[i]);
+                } else {
+                    value = rs.getObject(columnToProperty[i]);
+                }
+
                 if (value == null && propType.isPrimitive()) {
                     value = primitiveDefaults.get(propType);
                 }
@@ -116,13 +123,20 @@ public class BeanProcessor {
                     value = java.util.Date.from(dTime.atZone(ZoneId.systemDefault()).toInstant());
                 }
 
-               // if (value == null || firstParam.isInstance(value) || matchesPrimitive(firstParam, value.getClass())) {
-                    setter.invoke(bean, new Object[] { value });
-               // } else {
-               //     throw new SQLException("Cannot set " + prop.getName() + ": incompatible types, cannot convert "
-               //             + value.getClass().getName() + " to " + firstParam.getName());
+                if (propType.getTypeName().equals("boolean") && firstParam.isInstance(value)) {
+                    setter.invoke(bean, Integer.valueOf(value.toString()) == 1);
+                    return bean;
+                }
+
+                // if (value == null || firstParam.isInstance(value) ||
+                // matchesPrimitive(firstParam, value.getClass())) {
+                setter.invoke(bean, new Object[] { value });
+                // } else {
+                // throw new SQLException("Cannot set " + prop.getName() + ": incompatible
+                // types, cannot convert "
+                // + value.getClass().getName() + " to " + firstParam.getName());
 //
-               //  }
+                // }
 
             } catch (Exception e) {
                 throw new SQLException("Cannot set " + prop.getName() + ": " + e.getMessage());

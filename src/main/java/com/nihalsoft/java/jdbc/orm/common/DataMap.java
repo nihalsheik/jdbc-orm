@@ -96,4 +96,8 @@ public class DataMap extends HashMap<String, Object> {
         }
     }
 
+    public DataMap getDataMap(String key) {
+        return (DataMap) this.get(key);
+    }
+
 }

@@ -4,8 +4,9 @@ import java.beans.BeanInfo;
 import java.beans.Introspector;
 import java.beans.PropertyDescriptor;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import com.nihalsoft.java.jdbc.orm.annotation.Column;
 import com.nihalsoft.java.jdbc.orm.annotation.Table;
@@ -38,12 +39,17 @@ public class EntityUtil {
      * @return
      * @throws Exception
      */
-    public static EntityDescriptor getDescriptor(Class<?> clazz) throws Exception {
-        return EntityUtil._getInfo(clazz, null, null);
+    public static EntityDescriptor getDescriptor(Class<?> clazz) {
+        try {
+            return EntityUtil._getInfo(clazz, null);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        return null;
     }
 
     public static EntityDescriptor getDescriptor(Class<?> clazz, String... cols) throws Exception {
-        return EntityUtil._getInfo(clazz, null, null);
+        return EntityUtil._getInfo(clazz, null);
     }
 
     /**
@@ -55,7 +61,7 @@ public class EntityUtil {
      * @throws Exception
      */
     public static EntityDescriptor getDescriptor(SysEntity entity) throws Exception {
-        return EntityUtil._getInfo(entity.getClass(), entity, null);
+        return EntityUtil._getInfo(entity.getClass(), entity);
     }
 
     public static EntityDescriptor getDescriptor(SysEntity entity, String... cols) throws Exception {
@@ -75,14 +81,14 @@ public class EntityUtil {
         var dataMap = new DataMap();
 
         int colLen = cols == null ? 0 : cols.length;
-        
+
         if (colLen > 0) {
             for (var s : cols) {
                 dataMap.put(s, 1);
             }
         }
 
-        List<ColumnInfo> columns = new ArrayList<ColumnInfo>();
+        Map<String, ColumnInfo> columns = new LinkedHashMap<>();
 
         BeanInfo bi = Introspector.getBeanInfo(clazz);
 
@@ -110,13 +116,13 @@ public class EntityUtil {
             if (entity != null) {
                 value = getter.invoke(entity);
             }
-            columns.add(new ColumnInfo(name, value, e));
+            columns.put(name, new ColumnInfo(name, value, e));
             dataMap.put(name, value);
         }
 
         Table tbl = clazz.getAnnotation(Table.class);
 
-        return new EntityDescriptor(tbl.name(), columns, dataMap);
+        return new EntityDescriptor(tbl, columns, dataMap);
 
     }
 }

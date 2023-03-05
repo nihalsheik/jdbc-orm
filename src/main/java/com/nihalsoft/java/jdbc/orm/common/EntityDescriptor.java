@@ -1,29 +1,35 @@
 package com.nihalsoft.java.jdbc.orm.common;
 
 import java.util.ArrayList;
-import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
+
+import com.nihalsoft.java.jdbc.orm.annotation.Table;
 
 //TODO change name to TableInfo
 public class EntityDescriptor {
 
-    private String tableName = "";
+    private Table table;
 
-    private List<ColumnInfo> columns;
+    private Map<String, ColumnInfo> columns;
 
     private DataMap dataMap;
 
-    public EntityDescriptor(String tableName, List<ColumnInfo> columns, DataMap dataMap) {
-        this.tableName = tableName;
+    public EntityDescriptor(Table table, Map<String, ColumnInfo> columns, DataMap dataMap) {
+        this.table = table;
         this.columns = columns;
         this.dataMap = dataMap;
     }
 
-    public String getTableName() {
-        return this.tableName;
+    public Table getTable() {
+        return this.table;
     }
 
-    public List<ColumnInfo> getColumns() {
+    public String getTableName() {
+        return this.table.name();
+    }
+
+    public Map<String, ColumnInfo> getColumns() {
         return columns;
     }
 
@@ -44,23 +50,31 @@ public class EntityDescriptor {
         return values.toArray();
     }
 
-    public String getSqlStringForInsert(String criteria) {
-        return this._getSqlString("INSERT INTO", criteria);
+    public Object getValue(String name) {
+        return this.columns.get(name).getValue();
     }
 
-    public String getSqlStringForUpdate(String criteria) {
-        return this._getSqlString("UPDATE", criteria);
+    public ColumnInfo getColumnInfo(String name) {
+        return this.columns.get(name);
     }
 
-    public String getSqlStringForUpdate(String criteria, String[] cols) {
-        return this._getSqlString("UPDATE", criteria);
+    public String getSqlForInsert(String criteria) {
+        return this._getSql("INSERT INTO", criteria);
     }
 
-    public String getSqlStringForDelete(String criteria) {
+    public String getSqlForUpdate(String criteria) {
+        return this._getSql("UPDATE", criteria);
+    }
+
+    public String getSqlForUpdate(String criteria, String[] cols) {
+        return this._getSql("UPDATE", criteria);
+    }
+
+    public String getSqlForDelete(String criteria) {
         return "DELETE FROM " + this.getTableName() + " " + criteria;
     }
 
-    public String _getSqlString(String prefix, String criteria) {
+    public String _getSql(String prefix, String criteria) {
 
         var sBuilder = new StringBuilder();
         iterateColumn(ci -> sBuilder.append(",").append(ci.getName()).append("=?"));
@@ -75,9 +89,7 @@ public class EntityDescriptor {
     }
 
     public void iterateColumn(Consumer<ColumnInfo> consumer) {
-        for (ColumnInfo ci : this.getColumns()) {
-            consumer.accept(ci);
-        }
+        this.columns.forEach((k, v) -> consumer.accept(v));
     }
 
 }

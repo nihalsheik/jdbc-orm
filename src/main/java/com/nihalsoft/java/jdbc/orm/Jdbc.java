@@ -1,5 +1,6 @@
 package com.nihalsoft.java.jdbc.orm;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -39,7 +40,7 @@ public class Jdbc extends JdbcTemplate {
     public Select select() {
         return new Select(this);
     }
-    
+
     public Select select(String tableName) {
         return new Select(this, tableName);
     }
@@ -56,12 +57,33 @@ public class Jdbc extends JdbcTemplate {
         return this.query(sql, new ResultHandler<Object[]>(new ObjectMapper()), args);
     }
 
-    public <T> List<T> queryForBeanList(String sql, Class<T> type, Object... args) throws Exception {
-        return this.query(sql, new BeanListHandler<T>(beanProcessor, type), args);
+    public <T> List<T> queryForBeanList(String sql, Class<T> type, Object... args) {
+        try {
+            return this.query(sql, new BeanListHandler<T>(beanProcessor, type), args);
+        } catch (Exception ex) {
+
+        }
+        return new ArrayList<>();
     }
 
     public <T> T queryForBean(String sql, Class<T> type, Object... args) {
-        return this.query(sql, new BeanResultHandler<T>(new BeanMapper<T>(beanProcessor, type)), args);
+        try {
+            return this.query(sql, new BeanResultHandler<T>(new BeanMapper<T>(beanProcessor, type)), args);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        return null;
+    }
+
+    public <T> T queryForBean(Class<T> type, Object id) {
+        try {
+            EntityDescriptor ed = EntityUtil.getDescriptor(type);
+            return this.query("SELECT * FROM " + ed.getTableName() + " WHERE id=?",
+                    new BeanResultHandler<T>(new BeanMapper<T>(beanProcessor, type)), id);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        return null;
     }
 
     public List<DataMap> queryForListOfDataMap(String sql, Object... args) throws DataAccessException {
@@ -109,6 +131,10 @@ public class Jdbc extends JdbcTemplate {
         return this.queryForBeanList("SELECT * FROM " + EntityUtil.getTableName(clazz), clazz);
     }
 
+    public List<Map<String, Object>> findAll(String table) throws Exception {
+        return this.queryForList("SELECT * FROM " + table);
+    }
+
     public <T> List<T> findAll(Class<T> clazz, Object id) throws Exception {
         return this.queryForBeanList("SELECT * FROM " + EntityUtil.getTableName(clazz) + " WHERE id=?", clazz, id);
     }
@@ -143,27 +169,34 @@ public class Jdbc extends JdbcTemplate {
 
     }
 
-    public long saveOrUpdate(SysEntity entity, String... cols) throws Exception {
+    public long saveOrUpdate(SysEntity entity, String... cols) {
 
-        EntityDescriptor ed = EntityUtil.getDescriptor(entity, cols);
+        EntityDescriptor ed;
+        try {
+            ed = EntityUtil.getDescriptor(entity, cols);
 
-        if (entity.isNew()) {
-            SimpleJdbcInsert sjdbc = new SimpleJdbcInsert(this);
+            if (entity.isNew()) {
+                SimpleJdbcInsert sjdbc = new SimpleJdbcInsert(this);
 
-            long id = sjdbc.withTableName(ed.getTableName()) //
-                    .usingGeneratedKeyColumns("id") //
-                    .executeAndReturnKey(ed.toDataMap()) //
-                    .longValue();
+                long id = sjdbc.withTableName(ed.getTableName()) //
+                        .usingGeneratedKeyColumns("id") //
+                        .executeAndReturnKey(ed.toDataMap()) //
+                        .longValue();
 
-            entity.setId(id);
+                entity.setId(id);
 
-            return id;
+                return id;
 
-        } else {
-            String sql = ed.getSqlStringForUpdate("id=?");
-            log.info(sql);
-            return this.update(sql, ed.getValues(entity.getId()));
+            } else {
+                String sql = ed.getSqlForUpdate("id=?");
+                log.info(sql);
+                return this.update(sql, ed.getValues(entity.getId()));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
+
+        return 0;
     }
 
     public boolean exist(String table, String where, Object... args) throws Exception {
@@ -230,7 +263,12 @@ public class Jdbc extends JdbcTemplate {
      */
     public int update(SysEntity entity, String creteria, Object... args) throws Exception {
         EntityDescriptor ed = EntityUtil.getDescriptor(entity);
-        return this.update(ed.getSqlStringForUpdate(creteria), ed.getValues(args));
+        return this.update(ed.getSqlForUpdate(creteria), ed.getValues(args));
     }
 
+    @SuppressWarnings("unchecked")
+    public <T> T load(Class<? extends SysEntity> sysEntity, String creteria, Object... params) {
+        EntityDescriptor ed = EntityUtil.getDescriptor(sysEntity);
+        return (T) this.queryForBean("SELECT * FROM " + ed.getTableName() + " WHERE " + creteria, sysEntity, params);
+    }
 }
